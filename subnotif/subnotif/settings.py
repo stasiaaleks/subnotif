@@ -10,7 +10,6 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
-
 from decouple import AutoConfig
 from pathlib import Path
 
@@ -18,6 +17,17 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 config = AutoConfig()
 
+def get_list(text: str) -> list[str]:
+    """
+    Function to convert a comma-separated string into a list.
+
+    Args:
+        text (str)
+
+    Returns:
+        list[str]
+    """
+    return [item.strip() for item in text.split(",") if item.strip()]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -25,10 +35,16 @@ config = AutoConfig()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
+# Fetch ALLOWED_HOSTS from environment, or set a default
+ALLOWED_HOSTS = get_list(str(config("ALLOWED_HOSTS", default="127.0.0.1,localhost")))
+
+# Fetch CSRF_TRUSTED_ORIGINS from environment, or set a default
+CSRF_TRUSTED_ORIGINS = get_list(
+    str(config("CSRF_TRUSTED_ORIGINS", default="http://localhost"))
+)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -40,7 +56,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.postgres'
+    'django.contrib.postgres',
+    'subnotif',
+    'application'
 ]
 
 MIDDLEWARE = [
@@ -129,3 +147,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Telegram Bot integration
+BOT_TOKEN = config("TELEGRAM_BOT_TOKEN")
+DEV_DOMAIN = '24db-94-139-31-11.ngrok-free.app'
+TELEGRAM_API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}/'
