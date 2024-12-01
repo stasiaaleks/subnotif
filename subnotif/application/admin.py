@@ -1,3 +1,8 @@
 from django.contrib import admin
+from .models import Subscription
 
-# Register your models here.
+@admin.register(Subscription)
+class ChatConfigAdmin(admin.ModelAdmin):
+    list_display = ("service_name", "amount", "payment_day")
+    search_fields = ("service_name",)
+
