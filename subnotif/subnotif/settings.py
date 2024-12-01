@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from decouple import AutoConfig
 from pathlib import Path
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -58,7 +59,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.postgres',
     'subnotif',
-    'application'
+    'application',
 ]
 
 MIDDLEWARE = [
@@ -89,7 +90,9 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'subnotif.wsgi.application'
+
+ASGI_APPLICATION = "subnotif.asgi.application"
+WSGI_APPLICATION = "subnotif.wsgi.application"
 
 
 # Database
@@ -150,5 +153,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Telegram Bot integration
 BOT_TOKEN = config("TELEGRAM_BOT_TOKEN")
-DEV_DOMAIN = '24db-94-139-31-11.ngrok-free.app'
+DEV_DOMAIN = '5376-94-139-31-11.ngrok-free.app'
 TELEGRAM_API_URL = f'https://api.telegram.org/bot{BOT_TOKEN}/'
+
+# Development logging configuration
+logging.basicConfig(
+    format='%(asctime)s: %(levelname)s: %(message)s',
+    level=logging.INFO
+)

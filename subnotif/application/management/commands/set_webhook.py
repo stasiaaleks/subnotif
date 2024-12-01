@@ -1,19 +1,19 @@
+import asyncio
 from django.core.management.base import BaseCommand
 from django.conf import settings
-import requests
-
-TELEGRAM_API_URL = settings.TELEGRAM_API_URL
-DEV_DOMAIN = settings.DEV_DOMAIN
+from telegram import Bot
 
 class Command(BaseCommand):
-    help = "Set the Telegram webhook for the bot"
+    help = 'Sets the Telegram webhook for a default URL'
 
-    def handle(self, *args, **kwargs):
-        url = f"{TELEGRAM_API_URL}setWebhook"
-        webhook_url = f"https://{DEV_DOMAIN}/webhook/"
-        response = requests.post(url, json={"url": webhook_url})
+    def handle(self, *args, **options):
+        async def set_webhook():
+            bot = Bot(token=settings.BOT_TOKEN)
+            webhook_url =  f"https://{settings.DEV_DOMAIN}/webhook/"
+            response = await bot.set_webhook(url=webhook_url)
+            if response:
+                self.stdout.write(self.style.SUCCESS(f"Webhook set to {webhook_url}"))
+            else:
+                self.stdout.write(self.style.ERROR("Failed to set webhook"))
         
-        if response.status_code == 200:
-            self.stdout.write(f"Webhook set successfully: {response.json()}")
-        else:
-            self.stderr.write(f"Failed to set webhook: {response.status_code}, {response.text}")
+        asyncio.run(set_webhook())
