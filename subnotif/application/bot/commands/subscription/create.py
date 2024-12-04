@@ -1,6 +1,5 @@
 
 import logging
-from asgiref.sync import sync_to_async
 from enum import Enum
 from telegram import Update
 from telegram.ext import (
@@ -10,30 +9,14 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+from django.db.utils import IntegrityError
 
-
-from ...models import Subscription
+from ...messages_config import MessagesConfig
+from ...user.user_mapper import UserMapper
+from ....models import Subscription, Company
 
 logger = logging.getLogger(__name__)
-   
-async def show_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    assert update.message
-    subscriptions = await get_subscriptions()
-    
-    if subscriptions:
-        formatted_subscriptions = "\n".join(
-            [f"{sub}" for sub in subscriptions]
-        )
-        message = f"Here are the current subscriptions:\n\n{formatted_subscriptions}"
-    else:
-        message = "No subscriptions found"
-    
-    await update.message.reply_text(message)
-    
 
-@sync_to_async
-def get_subscriptions():
-    return list(Subscription.objects.all())
 
 class SubscriptionCreationSteps(Enum):
     COMPANY = 0
@@ -80,8 +63,8 @@ async def _add_subscription_entrypoint(update: Update, context):
 async def _handle_company(update: Update, context):
     assert update.message
     company_name = update.message.text
-    
-    context.user_data['subscription']['company_name'] = company_name
+    company, _ = await Company.objects.aget_or_create(name=company_name)
+    context.user_data['subscription']['company_name'] = company
     
     await update.message.reply_text("Enter the day of the month when the subscription payment is supposed to be withdrawn from your account")
     return SubscriptionCreationSteps.PAYMENT_DAY
@@ -146,35 +129,29 @@ async def _cancel(update: Update, context):
     return ConversationHandler.END
 
 async def _create_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    assert update.message
-    assert context.user_data
-    
+    if not (update.message and update.effective_user and context.user_data):
+        logger.error(f"No valid message or user data provided: {update}, {context}")
+        return
+
     subscription_data = context.user_data.get('subscription', {})
+    subscriber = await UserMapper.map(update.effective_user)
     
     try:
         subscription = await Subscription.objects.acreate(
-            service_name=subscription_data.get('company_name'),
+            subscriber=subscriber,
+            company=subscription_data.get('company_name'),
             payment_day=subscription_data.get('payment_day'),
             amount=subscription_data.get('amount'),
             payment_link=subscription_data.get('url'),
         )
         await subscription.asave()
-        
-        await update.message.reply_text(
-            f"Subscription created successfully:\n"
-            f"Service: {subscription.service_name}\n"
-            f"Payment Day: {subscription.payment_day}\n"
-            f"Amount: {subscription.amount}€\n"
-            f"URL: {subscription.payment_link if subscription.payment_link else 'No payment link'}"
-        )
+        await update.message.reply_text(MessagesConfig.Subscription.new_subscription_message(subscription))
         
         if 'subscription' in context.user_data:
             del context.user_data['subscription']
             
-    except Exception as e:
+    except IntegrityError as e:
         logger.error(f"Error creating subscription: {str(e)}")
-        await update.message.reply_text(
-            "Sorry, there was an error creating your subscription. Please try again."
-        )
+        await update.message.reply_text(MessagesConfig.Subscription.CREATION_FAILED)
         return ConversationHandler.END
     
